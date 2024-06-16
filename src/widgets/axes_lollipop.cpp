@@ -34,7 +34,7 @@ AxesLollipop::AxesLollipop()
         m_size = std::max(m_size, (float)ext.get_height());
     }
     set_content_height(100);
-    set_content_width(100);
+    set_content_width(120);
     set_draw_func(sigc::mem_fun(*this, &AxesLollipop::render));
     // signal_screen_changed().connect([this](const Glib::RefPtr<Gdk::Screen> &screen) { create_layout(); });
 }
@@ -54,39 +54,61 @@ void AxesLollipop::set_quat(const glm::quat &q)
     queue_draw();
 }
 
+void AxesLollipop::drawFace(const Cairo::RefPtr<Cairo::Context> &cr, double x1,double x2,double y1,double y2){
+    cr->move_to(x1, y1);
+    cr->line_to(x2, y1);
+    cr->line_to(x2, y2);
+    cr->line_to(x1, y2);
+    cr->move_to(x1, y1);
+    cr->stroke();
+}
+
 void AxesLollipop::render(const Cairo::RefPtr<Cairo::Context> &cr, int w, int h)
 {
     const float sc = (std::min(w, h) / 2) - m_size;
     cr->translate(w / 2, h / 2);
     cr->set_line_width(2);
-    std::vector<std::pair<unsigned int, glm::vec3>> pts;
-    for (unsigned int ax = 0; ax < 3; ax++) {
-        const glm::vec3 v(ax == 0, ax == 1, ax == 2);
-        const auto vt = glm::rotate(glm::inverse(m_quat), v) * sc;
-        pts.emplace_back(ax, vt);
+    double size = 1.0; // Size of the cube
+    const double vertices[8][3] = {
+    {-size, -size, -size},  // 0
+    { size, -size, -size},  // 1
+    { size,  size, -size},  // 2
+    {-size,  size, -size},  // 3
+    {-size, -size,  size},  // 4
+    { size, -size,  size},  // 5
+    { size,  size,  size},  // 6
+    {-size,  size,  size}   // 7
+    };
+    const int edges[12][2] = {
+    {0, 1},  // Edge 0: Vertices 0-1
+    {1, 2},  // Edge 1: Vertices 1-2
+    {2, 3},  // Edge 2: Vertices 2-3
+    {3, 0},  // Edge 3: Vertices 3-0
+
+    {4, 5},  // Edge 4: Vertices 4-5
+    {5, 6},  // Edge 5: Vertices 5-6
+    {6, 7},  // Edge 6: Vertices 6-7
+    {7, 4},  // Edge 7: Vertices 7-4
+
+    {0, 4},  // Edge 8: Vertices 0-4
+    {1, 5},  // Edge 9: Vertices 1-5
+    {2, 6},  // Edge 10: Vertices 2-6
+    {3, 7}   // Edge 11: Vertices 3-7
+    };
+    std::vector<std::pair<glm::vec3, glm::vec3>> pts;
+    for (unsigned int i = 0; i < 12; i++) {
+        const glm::vec3 v1(vertices[edges[i][0]][0], vertices[edges[i][0]][1], vertices[edges[i][0]][2]);
+        const glm::vec3 v2(vertices[edges[i][1]][0], vertices[edges[i][1]][1], vertices[edges[i][1]][2]);
+        const auto vt1 = glm::rotate(glm::inverse(m_quat), v1) * sc;
+        const auto vt2 = glm::rotate(glm::inverse(m_quat), v2) * sc;
+        pts.emplace_back(vt1, vt2);
     }
 
-    std::sort(pts.begin(), pts.end(), [](const auto &a, const auto &b) { return a.second.z < b.second.z; });
-
-    for (const auto &[ax, vt] : pts) {
-        cr->move_to(0, 0);
-        cr->line_to(vt.x, -vt.y);
-        const auto &c = dune3d::get_color(ax, vt.z / sc);
-        cr->set_source_rgb(c.r, c.g, c.b);
-        cr->stroke();
-    }
-    for (const auto &[ax, vt] : pts) {
-        const auto &c = dune3d::get_color(ax, vt.z / sc);
-        cr->set_source_rgb(c.r, c.g, c.b);
-
-        cr->arc(vt.x, -vt.y, m_size * .6, 0.0, 2.0 * M_PI);
-        cr->fill();
-
-        m_layout->set_text(s_xyz.at(ax));
-        auto ext = m_layout->get_pixel_logical_extents();
+    for (const auto &[u, v] : pts) {
+        cr->move_to(u.x, u.y);
+        cr->line_to(v.x, v.y);
         cr->set_source_rgb(0, 0, 0);
-        cr->move_to(vt.x - ext.get_width() / 2, -vt.y - ext.get_height() / 2);
-        m_layout->show_in_cairo_context(cr);
+        cr->stroke();
     }
 }
 

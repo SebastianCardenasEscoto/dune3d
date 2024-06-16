@@ -12,7 +12,7 @@ private:
     glm::quat m_quat;
     Glib::RefPtr<Pango::Layout> m_layout;
     float m_size = 5;
-
+    void drawFace(const Cairo::RefPtr<Cairo::Context> &cr, double x1, double x2, double y1, double y2);
     void render(const Cairo::RefPtr<Cairo::Context> &cr, int w, int h);
     void create_layout();
 };
